@@ -1,5 +1,6 @@
 
 # EDA Parkinson Demo Toolkit
+(for howto setup and measure skin potential reaction (SPR) please refer to https://github.com/volkere/gsr_sensor)
 
 This package contains a minimal, dependency-light pipeline to analyze electrodermal signals (SC or SP):
 - preprocessing (tonic/phasic separation via moving-average)
