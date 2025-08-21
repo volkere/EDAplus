@@ -1,0 +1,111 @@
+
+
+# 1) Neurophysiologischer Hintergrund (Was koppelt Hautsignal ↔ Gehirn?)
+
+* EDA (egal ob als **Hautleitfähigkeit**/SC oder **Hautpotenzial**/SP erfasst) ist ein **nahezu reiner Sympathikus-Ausgang** der ekkrinen Schweißdrüsen. Sudomotorische Nervenburst-Aktivität korreliert kausal mit SCR/SSR-Amplituden (Mikroneurographie, klassische Arbeiten; moderne De-/Rekonvolutions-Modelle nutzen das explizit). ([PMC][1])
+* Der zentrale Treiber ist die **CAN** (v. a. vordere Insula, ACC, Amygdala, Hypothalamus, PAG, Locus-coeruleus-NE-System). Degeneration/Fehlkonnektivität in diesen Knoten verändert den sudomotorischen „Gain“ und die Dynamik messbarer EDA-Komponenten. ([PubMed][2], [BioRxiv][3])
+* Bei **Parkinson** sind **SSR/EDA-Antworten** häufiger abgeschwächt oder fehlen; Latenzen sind verlängert; ESC/EDA werden als Marker der **autonomen Dysfunktion** untersucht (teils heterogene Befunde, aber klare Trends). ([Wiley Online Library][4], [Frontiers][5], [PubMed][6], [MDPI][7])
+
+# 2) Generatives (vorwärtsgerichtetes) Modell
+
+Wir modellieren den Weg **CAN → sudomotorische Nervenaktivität u(t) → Schweißdrüse/Stratum corneum → Messgröße (SC oder SP)**.
+
+**Latenter zentraler Zustand („Arousal“):**
+$z_t$ kontinuierlicher Zustand der CAN-Erregung (z. B. LC-NE-Tonus);
+$z_{t+\Delta} = A z_t + B w_t$, $w_t \sim \mathcal{N}(0,Q)$.
+
+**Sudomotorische Bursts:**
+Stochastischer Punktprozess mit zeitvarianter Rate $\lambda(t) = \mathrm{softplus}(c_0 + c^\top z_t)$. Die Burst-Impulse $s(t)=\sum_k a_k\delta(t-t_k)$ tragen Amplituden $a_k$ („Burst-Gain“).
+
+**Schweißdrüsen-/Hautdynamik (phasic):**
+Lineares Zeitinvariant-Glied mit kausalem Impulsantwort-Kern (physiologisch bewährt, *cvxEDA/Ledalab*):
+$h(t;\tau_1,\tau_2) = \frac{1}{\tau_2-\tau_1}\left(e^{-t/\tau_2}-e^{-t/\tau_1}\right)\mathbf{1}_{t\ge 0}$.
+Phasische Komponente: $p(t) = \alpha \,(h * s)(t)$. ([centropiaggio.unipi.it][8], [PMC][9], [ledalab.de][10])
+
+**Tonic/Slow-Drift:**
+$\dot T(t)= \eta(t)$, mit sehr niedrigfrequenter Drift (AR(1)/Integrator).
+
+**Messgleichungen:**
+
+* **Hautleitfähigkeit (SC):** $y_{\mathrm{SC}}(t)=T(t)+p(t)+\varepsilon(t)$.
+* **Hautpotenzial (SP):** via lokalem RC-Ersatznetz der Haut (Stratum corneum = C, Gewebe = R). Näherung:
+  $ y_{\mathrm{SP}}(t) = G_{RC}\{\;T(t)+p(t)\;\} + \nu(t)$,
+  wobei $G_{RC}$ eine lineare Filterung (Hoch-/Tiefpass-Anteil) abbildet. Praktisch: **SP** ist stärker von Kapazität/elektrischer Ladung abhängig, **SC** von Ionenleitpfaden—beides entsteht aus denselben sudomotorischen Prozessen. ([bem.fi][11], [PMC][12])
+
+> **Parkinson-Effekt im Vorwärtsmodell:** geringerer Burst-Gain $\alpha$, niedrigere Burst-Rate $\lambda(t)$, längere Erholzeiten (größeres $\tau_2$), häufiger **0-Antworten** (SSR „absent“) → kleinere/seltene Peaks, flachere Reizantworten, ausgeprägtere Habituation. ([Wiley Online Library][4], [PubMed][6])
+
+# 3) Inversion (Rückschluss aufs Gehirn)
+
+Wir schätzen $\{z_t, s(t)\}$ aus $y(t)$ (SC oder SP):
+
+1. **Artefakt-Robustes Preprocessing** (Bewegung/Temp/Feuchte kontrollieren). ([MDPI][13])
+2. **De-/Rekonvolution** für phasic/tonic (cvxEDA/Ledalab) → liefert Schätzungen für $p(t)$ und **sudomotorische Treiber** (SMNA-Proxy). ([centropiaggio.unipi.it][8], [ledalab.de][10])
+3. **Zustandsrauminversion**: Kalman/Particle Smoother für $z_t$ mit oben genannter Punktprozess-Emission. (Vgl. moderne physiologisch motivierte EDA-State-Space-Modelle.) ([PMC][12])
+
+**Zielgrößen (als „zentrale“ Surrogates):**
+
+* **Burst-Rate** $\hat\lambda(t)$, **Burst-Amplitude** $\hat a$ (SMNA-Proxy).
+* **Systemparameter** $\hat \tau_1,\hat \tau_2,\hat \alpha$ (Effektor-Kinetik).
+* **Habituation/Erholung**: Sequenzstatistiken stimulus-gekoppelt (Amplitude ↓, Latenz ↑, „non-response“-Rate). ([PMC][9])
+
+# 4) Port-Hamiltonian-Sicht (Peripherie als energieerhaltendes System)
+
+Für die physikalisch stringente Kopplung (nützlich z. B. bei Regler-/Observer-Entwurf):
+
+* Zustand $x=[q\;,\;v]^\top$ mit **Ladung** $q$ (Schweißgang-Kapazität) und einem diffusionsnahen „Fluss“ $v$; **Hamiltonian** $H(x)=\tfrac12(q^2/C)+\tfrac12 L v^2$.
+* Struktur/Dissipation: $\dot x = [J(x)-R(x)]\nabla H(x)+B u(t)$, $y=\nabla H(x)$.
+* **Eingang** $u(t)$: sudomotorische Bursts; **Ausgang** $y$: SP/SC-nahe Größen.
+  Parkinson wird hier als **Gain- und Dissipations-Shift** (kleineres $B$, größeres $R$, geänderte Zeitkonstanten) modelliert. (Literatur nutzt i. d. R. LTI-Impulse-Modelle; die PHS-Fassung ist eine saubere Verallgemeinerung auf Basis derselben Physiologie.) ([centropiaggio.unipi.it][8], [ledalab.de][10])
+
+# 5) Konkrete **Parkinson-Biomarker-Hypothesen** aus EDA/SP
+
+Messbar **in Ruhe** und **unter Provokation** (Oddball/Startle, tiefe Atmung, Medianus-Stimulus, Kaltpressor):
+
+* **SSR/SPR-Präsenz** (binär) & **Amplitude/Latency** stimulusgekoppelt → **häufiger ausbleibend**, **amplitudenreduziert**, **latenzverlängert** bei PD. ([PubMed][6], [Wiley Online Library][4])
+* **Phasic-Gain $\alpha$** & **Burst-Rate $\lambda$** ↓; **Habituation** ↑ (schnelleres „Ausbrennen“ bei Reizserien). ([Wiley Online Library][4])
+* **Zeitkonstanten** ($\tau_2$ Erholung) ↑ (langsamere Rückkehr zum Tonic). ([PubMed][6])
+* **Lateralisierung** (Asymmetrie Hand links/rechts) korreliert mit motorischer Asymmetrie. ([Frontiers][5])
+* **Medikationsantwort:** EDA-Metriken unterscheiden **OFF→ON** (z. B. nach L-Dopa) — Kandidat für *digitalen ON/OFF-Marker*. ([MDPI][14])
+* **ESC/QSART-Ersatz** (Sudoscan): praktikabel, aber Studien zu PD teils kontrovers → als *Sekundärmarker* kombinieren. ([MDPI][7], [PMC][15])
+
+# 6) Mess- & Auswerte-Protokoll (kliniktauglich, 20–30 min)
+
+1. **Setup:** Raum 22–24 °C, 40–60 % rF; Palmar-/Plantar-Elektroden; **DC-gekoppelt** (für SP) + **konstant-Spannung** (für SC), wenn möglich **beides** parallel. 5 min Ruhebaseline.
+2. **Paradigmen:** (a) Oddball/Startle (10–20 Reize), (b) 6× tiefe Atmung, (c) 2× 60 s Kaltpressor **oder** Medianus-Stimulus (SSR).
+3. **Features:**
+
+   * event-bezogen: Amplitude, Latenz, Anstiegszeit, Halbwerts-Erholung, Non-Response-Rate, Habituations-Slope;
+   * ruhebezogen: SCL/SP-Level, phasic Burst-Rate, Power < 0.5 Hz, Entropie/Komplexität.
+   * dekonvolutiv: $\hat\alpha, \hat\tau_1, \hat\tau_2, \hat\lambda$. ([centropiaggio.unipi.it][8])
+4. **Modell-Inversion:** cvxEDA/Ledalab zur Treiber-Extraktion; Bayesian Smoother für $z_t$; anschließend **Klassifikator/Regressor** (PD vs. HC; Korrelation mit UPDRS/SCOPA-AUT). ([ledalab.de][10], [PMC][9])
+5. **Validierung:** n ≥ 60/Gruppe, Alters-/Temp-Matching; Cross-Site-Test; primärer Endpunkt AUC für PD-Erkennung; sekundär ON/OFF-Diskrimination.
+
+# 7) Wichtige Störfaktoren & Kontrolle
+
+Alter, Hauttemp/Feuchte, Anticholinergika/Betablocker, Diabetes/Polyneuropathie, Hauterkrankungen, Dehydratation, starke Bewegung. Dokumentieren, ggf. als Kovariaten im Zustandsraummodell berücksichtigen. ([PMC][15])
+
+---
+
+### Warum das tragfähig ist (Kernaussagen, belegt)
+
+* **Periphere Kausalität:** Sudomotorische Nervenbursts → SCR/SSR-Peaks (Mikroneurographie, De-/Rekonvolution). ([PMC][1])
+* **Zentrale Verankerung:** CAN-Knoten steuern Sympathikus/Arousal. ([PubMed][2])
+* **Parkinson-Signal:** Häufig reduzierte/fehlende SSR, geänderte Dynamik; ESC/EDA als Marker der autonomen Dysfunktion (wenn auch teils kontrovers, daher multimodal denken). ([Wiley Online Library][4], [PubMed][6], [MDPI][7])
+
+Wenn du magst, baue ich dir im nächsten Schritt ein **konkretes Auswerte-Notebook (cvxEDA + State-Space-Inversion)** mit Beispiel-Datenstruktur und Feature-Extraktion — inklusive Vorlagen für deine klinischen Aufgaben (Oddball, tiefe Atmung, Medianus-Stimulus).
+
+[1]: https://pmc.ncbi.nlm.nih.gov/articles/PMC5626908/?utm_source=chatgpt.com "Measuring and quantifying skin sympathetic nervous ..."
+[2]: https://pubmed.ncbi.nlm.nih.gov/34461325/?utm_source=chatgpt.com "Stress and central autonomic network"
+[3]: https://www.biorxiv.org/content/10.1101/2022.05.25.493371.full?utm_source=chatgpt.com "The central autonomic system revisited"
+[4]: https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1600-0404.1996.tb00187.x?utm_source=chatgpt.com "Sympathetic skin response in Parkinson's disease"
+[5]: https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2020.577128/full?utm_source=chatgpt.com "Association Analyses of Autonomic Dysfunction and ..."
+[6]: https://pubmed.ncbi.nlm.nih.gov/16867313/?utm_source=chatgpt.com "Evaluation of sympathetic skin response in Parkinson's ..."
+[7]: https://www.mdpi.com/2077-0383/12/4/1517?utm_source=chatgpt.com "Assessing the Feasibility of Using Electrochemical Skin ..."
+[8]: https://www.centropiaggio.unipi.it/sites/default/files/greco2015cvxeda.pdf?utm_source=chatgpt.com "a Convex Optimization Approach to Electrodermal Activity ..."
+[9]: https://pmc.ncbi.nlm.nih.gov/articles/PMC4266536/?utm_source=chatgpt.com "A head-to-head comparison of SCRalyze and Ledalab, two ..."
+[10]: https://www.ledalab.de/?utm_source=chatgpt.com "Ledalab"
+[11]: https://www.bem.fi/book/27/27.htm?utm_source=chatgpt.com "27. The Electrodermal Response - Bioelectromagnetism"
+[12]: https://pmc.ncbi.nlm.nih.gov/articles/PMC9333288/?utm_source=chatgpt.com "Physiological characterization of electrodermal activity ..."
+[13]: https://www.mdpi.com/1424-8220/24/16/5434?utm_source=chatgpt.com "Disturbances in Electrodermal Activity Recordings Due to ..."
+[14]: https://www.mdpi.com/2227-7390/11/23/4822?utm_source=chatgpt.com "Advanced Analysis of Electrodermal Activity Measures to ..."
+[15]: https://pmc.ncbi.nlm.nih.gov/articles/PMC7660297/?utm_source=chatgpt.com "The Role of Electrochemical Skin Conductance as a ..."
