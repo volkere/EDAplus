@@ -1,0 +1,184 @@
+Port-Hamiltonian-Modell (PHS) für elektrodermale Signale, speziell für Hautpotential (SP) — und auf Wunsch lässt es sich genauso für Hautleitfähigkeit (SC/GSR) formulieren.
+
+1) Physikalisches Bild
+
+EDA lässt sich gut als elektrisches Gewebe-Netzwerk beschreiben:
+	•	C1: Kapazität der Hornschicht (Stratum corneum)
+	•	C2: Kapazität tieferer Gewebeschichten / Schweißdrüsenumfeld
+	•	g1, g2: Leckleitwerte (ohmsche Verluste) dieser Schichten
+	•	g_m: Kopplungsleitwert zwischen Oberfläche (C1) und tieferer Schicht (C2)
+	•	i_s(t): stromartige Anregung durch sudomotorische Aktivität (Schweißdrüsen), die Ionenströme treibt
+	•	Port 1: Elektroden an der Hautoberfläche (Messport)
+
+Damit entsteht ein RC-Leiter (Zwei-Knoten-Modell) mit zwei Zuständen (zwei Zeitskalen: „phasic“ und „tonic“).
+
+2) PHS-Formulierung (Strom-Eingabe am Port)
+
+Zustand (Energiespeicher):
+x=\begin{bmatrix}q_1\\ q_2\end{bmatrix},\quad
+v_1=\frac{q_1}{C_1},\; v_2=\frac{q_2}{C_2}
+q_k sind Kondensatorladungen, v_k die zugehörigen Knotenpotentiale.
+
+Energie (Hamiltonfunktion):
+H(x)=\tfrac{1}{2}\frac{q_1^2}{C_1}+\tfrac{1}{2}\frac{q_2^2}{C_2},\qquad
+\nabla H(x)=\begin{bmatrix}v_1\\ v_2\end{bmatrix}.
+
+Dissipation & Kopplung (nur R, kein J):
+R=
+\begin{bmatrix}
+g_1+g_m & -\,g_m\\
+-\,g_m   & g_2+g_m
+\end{bmatrix}\;\;\;(\text{symmetrisch, }R\succeq0),\qquad J=0.
+
+Eingaben/Ausgaben (Ports):
+Wir nehmen Ströme als Eingaben:
+u=\begin{bmatrix} i_e \\ i_s \end{bmatrix},\qquad
+y=G^\top\nabla H=\begin{bmatrix} v_1 \\ v_2 \end{bmatrix},\qquad
+G=I_2.
+	•	i_e: Messport-Strom über die Elektroden
+	•	i_s: sudomotorischer „Quellstrom“ in der tieferen Schicht
+
+Dynamik (PHS-Standardform):
+\dot x = (J-R)\,\nabla H + G\,u = -R\begin{bmatrix}v_1\\ v_2\end{bmatrix} + \begin{bmatrix} i_e\\ i_s\end{bmatrix}.
+Komponentengleichungen (KCL):
+\begin{aligned}
+\dot q_1 &= -\,(g_1+g_m)\,v_1 + g_m\,v_2 + i_e,\\
+\dot q_2 &= \;\;g_m\,v_1 - (g_2+g_m)\,v_2 + i_s.
+\end{aligned}
+
+Energiebilanz (Passivität):
+\dot H = -\,\begin{bmatrix}v_1&v_2\end{bmatrix}R\begin{bmatrix}v_1\\v_2\end{bmatrix} + v_1\,i_e + v_2\,i_s.
+→ Dissipation über g_1,g_2,g_m ist stets nichtnegativ; zu-/abgeführte Leistung kommt nur über die Ports.
+
+3) Messmodi sauber abbilden
+
+A) Hautpotential (SP, „open circuit“)
+Das Messgerät ist hochohmig ⇒ i_e \approx 0.
+Dann ist der Output dein Hautpotential v_1=y_1. Die treibende Größe ist i_s(t) (sudomotorisch), die über das dissipativ gekoppelte RC-Netzwerk auf v_1 wirkt.
+
+B) Hautleitfähigkeit / GSR (konstante Spannung oder Strom)
+	•	CV-Messung (konstante Spannung): Es ist oft praktischer, Port 1 als „Effort-Port“ zu definieren: u_1=v_1, y_1=i_e (Leistungsprodukt bleibt u_1y_1=v_1i_e). Das ist äquivalent, nur die Port-Rollen sind getauscht.
+	•	CC-Messung (konstanter Strom): Dann ist u_1=i_e vorgegeben; man misst y_1=v_1 (wie oben).
+
+Beide Varianten bleiben Port-Hamiltonian und passiv.
+
+4) (Optional) Nichtlinearität durch Schweißdrüsen
+
+Sudomotorik öffnet Kanäle ⇒ effektiver Leitwert g_2 steigt. Ein einfaches (passiv bleibendes) Modell:
+\dot z = -\frac{z}{\tau} + \alpha\,s(t),\qquad
+g_2(z)=g_{2,0}+ \beta\,z,\qquad g_2(z)\ge 0.
+Hier ist s(t) der (modellierte) Nerven-Drive; z wirkt als „Füllstand“. Dann wird R(x) zustandsabhängig, die PHS-Struktur bleibt erhalten.
+
+5) So nutzt du das Modell praktisch
+	1.	Topologie wählen: Obiges 2-Knoten-Modell bildet zwei dominante Zeitkonstanten (tonic/phasic) ab.
+	2.	SP-Modus: setze i_e=0; simuliere/fitte v_1(t) gegen deine Rohdaten.
+	3.	Parameter schätzen: (C_1,C_2,g_1,g_2,g_m) per nichtlinearer Least-Squares (oder Kalman/UKF) auf v_1 (SP) bzw. auf i_e bei vorgegebenem v_1 (GSR).
+	4.	Driver-Schätzung: Mit bekanntem R,C lässt sich i_s(t) (oder s(t)) als „reizgetriebener“ Input rekonstruieren (passiver Beobachter / Deconvolution), analog zu gängigen EDA-Deconvolutions — nur jetzt energie-konsistent.
+
+⸻
+Funktionen 
+
+	•	SP-Daten v_1(t) einliest,
+	•	das PHS-Modell simuliert und
+	•	per Curve-Fit die Parameter schätzt bzw. i_s(t) Fertig! Hier ist dein Skript:
+
+
+
+Kurzgebrauch
+	•	Simulation von Hautpotential v_1(t) mit PHS (SP-Modus, i_e=0)
+	•	Gemeinsames Fitten von Parametern (C_1,C_2,g_1,g_2,g_m) und einem stückweise konstanten sudomotorischen Treiber i_s(t)
+
+Installation
+
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install numpy scipy
+
+Demo starten (synthetische Daten + Fit)
+
+python /mnt/data/eda_phs_model.py --fit
+
+Das Skript druckt die geschätzten Parameter und speichert zusätzlich eda_phs_demo_output.csv (Zeit, Mess-SP, Fit-SP, Fit-v2, rekonstruierter Treiber).
+
+Eigene Daten fitten (Skin Potential, i_e \approx 0)
+
+Im eigenen Python-Code:
+
+import numpy as np
+from eda_phs_model import Params, simulate_sp, fit_sp
+
+# t: Zeitstempel (s), v1_meas: gemessenes Hautpotential
+t = ...                      # numpy array, strictly increasing
+v1_meas = ...                # numpy array gleicher Länge
+
+# Grober Treiber-Zeitraster (z.B. 1 s)
+K = int(np.ceil((t[-1]-t[0])/1.0))
+is_breaks = np.linspace(t[0], t[-1], K+1)
+
+# Startwerte/Bounds
+p0 = Params(C1=1.0, C2=5.0, g1=0.01, g2=0.02, gm=0.01)
+lb_p = np.array([1e-3, 1e-3, 1e-4, 1e-4, 1e-4])
+ub_p = np.array([50.0, 50.0, 1.0, 1.0, 1.0])
+lb_is = -5.0*np.ones(K)
+ub_is =  5.0*np.ones(K)
+
+fit = fit_sp(
+    t, v1_meas, p0,
+    is_breaks,
+    is0_vals=np.zeros(K),
+    bounds_params=(lb_p, ub_p),
+    bounds_is=(lb_is, ub_is),
+    reg_is_l2=1e-3,          # klein halten
+    reg_is_diff_l2=1e-2,     # wenige Sprünge fördern
+    verbose=1
+)
+
+print(fit["params_hat"])
+is_vals = fit["is_vals"]     # stückweise-constant rekonstruierter Treiber
+v1_fit  = fit["sim"]["v1"]   # modellierter Skin-Potential-Fit
+
+Wenn du willst, passe ich dir das Skript noch an (z. B. festen Parameter lassen, nur i_s schätzen, CSV-Import deiner Messdaten, oder Output-Top! Ich hab dir das erweiterte Skript gebaut:
+	•	Download eda_phs_model_plus.py
+
+Was ist neu?
+	•	CSV-Import deiner Messdaten (t,v1)
+	•	Frei wählbare zu schätzende Parameter (--free)
+	•	Nur-Treiber-Schätzung möglich (--estimate-is-only)
+	•	Gitter für stückweise konstanten Treiber per --is-dt
+	•	Optional: Plots und Export der Fit-Kurven
+
+Quickstart
+
+python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install numpy scipy matplotlib
+
+Eigene Daten fitten (CSV mit Spalten t,v1)
+
+python /mnt/data/eda_phs_model_plus.py \
+  --csv pfad/zu/deinen_daten.csv \
+  --out-prefix mein_fit \
+  --is-dt 1.0 \
+  --free C1 C2 g1 g2 gm \
+  --reg-is 1e-3 --reg-is-diff 1e-2 \
+  --save-sim-csv --plot
+
+Ergebnis-Dateien:
+	•	mein_fit_params.txt (geschätzte C_1,C_2,g_1,g_2,g_m)
+	•	mein_fit_is.txt (Stufenwerte von i_s)
+	•	mein_fit_fit.csv (Zeitreihen: t, v1\\text{meas}, v1\\text{fit}, v2\_\text{fit}, i_s)
+
+Nur i_s schätzen, Parameter fix lassen
+
+python /mnt/data/eda_phs_model_plus.py \
+  --csv pfad/zu/deinen_daten.csv \
+  --out-prefix mein_fit_fixparams \
+  --is-dt 0.5 \
+  --estimate-is-only \
+  --params 1.2 6.0 0.02 0.03 0.02 \
+  --save-sim-csv --plot
+
+Parameter-Grenzen anpassen
+
+# je zwei Werte (lb, ub) pro Parameter in Reihenfolge C1,C2,g1,g2,gm
+--bounds-p 1e-3 50  1e-3 50  1e-4 1  1e-4 1  1e-4 1
+# Bounds für i_s (alle Stufen gleich)
+--bounds-is -5 5
